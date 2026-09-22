@@ -46,6 +46,19 @@
   .leaflet-popup-content ul { margin:0; padding-left:16px; max-height:32vh; overflow-y:auto; }
   .noresult { padding:14px; font-size:12px; color:#8fa3bd; text-align:center; }
 
+  .modal-overlay { position:fixed; inset:0; background:rgba(8,14,24,.72); z-index:3000; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.hidden { display:none; }
+  .modal-card { background:#fff; color:#1c2635; max-width:560px; width:100%; max-height:88vh; overflow-y:auto; border-radius:12px; padding:22px 22px 18px; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .modal-card h2 { margin:0 0 10px; font-size:18px; color:#b8342b; }
+  .modal-card p { margin:0 0 12px; font-size:14px; line-height:1.5; }
+  .modal-card .updated { font-weight:700; font-size:13px; background:#fff4d6; border:1px solid #e8b93c; border-radius:8px; padding:8px 10px; }
+  .modal-card h3 { margin:14px 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.4px; color:#5a6675; }
+  .modal-card ul { margin:0 0 16px; padding-left:18px; }
+  .modal-card li { font-size:13px; line-height:1.5; margin-bottom:6px; }
+  .modal-card a { color:#1d5fa8; word-break:break-word; }
+  .modal-card button { display:block; width:100%; background:#0f1c2e; color:#fff; border:none; border-radius:8px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; }
+  .modal-card button:hover { background:#1b3049; }
+
   @media (max-width: 820px) {
     #wrap { display:block; }
     #map { height:100vh; width:100vw; }
@@ -58,6 +71,21 @@
 </style>
 </head>
 <body>
+<div id="notice" class="modal-overlay">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="noticeTitle">
+    <h2 id="noticeTitle">Unofficial map &mdash; please check official sources</h2>
+    <p>This map is an <b>approximation</b> put together to help residents understand the cordon and evacuation area. It is <b>not an official source</b> and may be incomplete, out of date or inaccurate.</p>
+    <p>Always follow the advice of the emergency services and <b>check the official sources below</b> before making any decisions.</p>
+    <p class="updated">Website last updated: 8pm, 22 September 2026</p>
+    <h3>Official sources</h3>
+    <ul>
+      <li><a href="https://www.falmouthpacket.co.uk/news/26572907.bomb-exclusion-zone-falmouth-docks-extended-tomorrow/" target="_blank" rel="noopener">Falmouth Packet &mdash; Bomb exclusion zone at Falmouth Docks extended</a></li>
+      <li><a href="https://www.cornwall.gov.uk/council-news/communities-and-housing/falmouth-incident-live-updates/" target="_blank" rel="noopener">Cornwall Council &mdash; Falmouth incident: live updates</a></li>
+      <li><a href="https://www.bbc.co.uk/news/articles/c9rk3vm3plego" target="_blank" rel="noopener">BBC News &mdash; Cordon remains after WW2 missile found in Falmouth dock</a></li>
+    </ul>
+    <button id="noticeClose" type="button">I understand &mdash; view map</button>
+  </div>
+</div>
 <div id="wrap">
   <div id="sidebar">
     <div id="sidehead">
@@ -295,6 +323,12 @@ const listBtn = document.getElementById('listbtn');
 const closeBtn = document.getElementById('closebtn');
 listBtn.addEventListener('click', () => document.getElementById('sidebar').classList.add('open'));
 closeBtn.addEventListener('click', () => document.getElementById('sidebar').classList.remove('open'));
+
+const notice = document.getElementById('notice');
+function closeNotice() { notice.classList.add('hidden'); }
+document.getElementById('noticeClose').addEventListener('click', closeNotice);
+notice.addEventListener('click', e => { if (e.target === notice) closeNotice(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNotice(); });
 
 main();
 </script>
