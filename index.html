@@ -9,7 +9,7 @@
   html, body { margin:0; padding:0; height:100%; font-family:'Segoe UI', Arial, sans-serif; }
   #wrap { display:flex; height:100%; }
   #map { flex:1; height:100vh; }
-  #sidebar { width:400px; max-width:92vw; background:#0f1c2e; color:#d7e3f4; display:flex; flex-direction:column; position:relative; z-index:1000; }
+  #sidebar { width:400px; max-width:92vw; background:#0f1c2e; color:#d7e3f4; display:flex; flex-direction:column; position:relative; z-index:1200; }
   #sidehead { display:flex; align-items:flex-start; }
   #closebtn { display:none; background:none; border:none; color:#fff; font-size:26px; cursor:pointer; padding:10px 12px; }
   #sidebar h1 { font-size:15px; margin:0; padding:14px 14px 4px; line-height:1.3; }
@@ -64,8 +64,9 @@
     #map { height:100vh; width:100vw; }
     #sidebar { position:fixed; top:0; left:0; height:100%; width:min(94vw,420px); transform:translateX(-105%); transition:transform .22s ease; box-shadow:2px 0 14px rgba(0,0,0,.45); }
     #sidebar.open { transform:translateX(0); }
-    #closebtn { display:block; }
+    #closebtn { display:flex; align-items:center; justify-content:center; width:44px; height:44px; font-size:28px; line-height:1; background:#22344d; border-radius:8px; margin:8px; }
     #listbtn { display:flex; align-items:center; gap:8px; }
+    #sidebar.open ~ #listbtn { display:none; }
     #search { font-size:16px; }
   }
 </style>
@@ -115,7 +116,8 @@ const CORDON_RADIUS = 755;   // metres - the safety cordon
 const EVAC_BUFFER = 150;     // metres - shading drawn around the affected addresses
 // -------------------------------------------------------------------------
 
-const map = L.map('map').setView(BOMB, 14);
+const map = L.map('map', { zoomControl: false }).setView(BOMB, 14);
+L.control.zoom({ position: window.matchMedia('(max-width: 820px)').matches ? 'bottomright' : 'topleft' }).addTo(map);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
   maxZoom: 18,
   attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics'
@@ -261,7 +263,7 @@ async function main() {
     'Evac area (red)': evacAreaLayer,
     ['Cordon ' + CORDON_RADIUS + 'm (yellow)']: cordonLayer,
     'Affected addresses (pins)': pinLayer
-  }, { collapsed: false, position: 'topright' }).addTo(map);
+  }, { collapsed: window.matchMedia('(max-width: 820px)').matches, position: 'topright' }).addTo(map);
 
   // fit to cordon + addresses
   let bounds = L.latLng(BOMB).toBounds(CORDON_RADIUS * 2);
@@ -321,8 +323,10 @@ searchEl.addEventListener('input', e => {
 
 const listBtn = document.getElementById('listbtn');
 const closeBtn = document.getElementById('closebtn');
-listBtn.addEventListener('click', () => document.getElementById('sidebar').classList.add('open'));
-closeBtn.addEventListener('click', () => document.getElementById('sidebar').classList.remove('open'));
+const sidebarEl = document.getElementById('sidebar');
+listBtn.addEventListener('click', () => sidebarEl.classList.toggle('open'));
+closeBtn.addEventListener('click', () => sidebarEl.classList.remove('open'));
+map.on('click', () => sidebarEl.classList.remove('open'));
 
 const notice = document.getElementById('notice');
 function closeNotice() { notice.classList.add('hidden'); }
