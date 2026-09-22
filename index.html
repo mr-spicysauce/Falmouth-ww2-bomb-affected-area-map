@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Falmouth UXB - Cordon &amp; Evac Area</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  html, body { margin:0; padding:0; height:100%; font-family:'Segoe UI', Arial, sans-serif; }
+  #wrap { display:flex; height:100%; }
+  #map { flex:1; height:100vh; }
+  #sidebar { width:400px; max-width:92vw; background:#0f1c2e; color:#d7e3f4; display:flex; flex-direction:column; position:relative; z-index:1000; }
+  #sidehead { display:flex; align-items:flex-start; }
+  #closebtn { display:none; background:none; border:none; color:#fff; font-size:26px; cursor:pointer; padding:10px 12px; }
+  #sidebar h1 { font-size:15px; margin:0; padding:14px 14px 4px; line-height:1.3; }
+  #sidebar .sub { font-size:11px; padding:0 14px 8px; color:#8fa3bd; }
+  #status { font-size:12px; padding:0 14px 8px; color:#e8b93c; }
+  #status.err { color:#e2574c; }
+  #search { margin:0 14px 10px; padding:11px 12px; border-radius:8px; border:1px solid #2b3c55; background:#15283f; color:#eaf1fb; font-size:14px; }
+  #search::placeholder { color:#7d90a8; }
+  #list { flex:1; overflow-y:auto; padding:0 8px 14px; -webkit-overflow-scrolling:touch; }
+  #list::-webkit-scrollbar { width:8px; }
+  #list::-webkit-scrollbar-thumb { background:#2b3c55; border-radius:4px; }
+  .section { font-size:12px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:12px 8px 2px; color:#8fa3bd; }
+  .grp { margin:6px 2px; }
+  .grp summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; padding:9px 8px; border-radius:6px; background:#15283f; font-size:12.5px; }
+  .grp summary::-webkit-details-marker { display:none; }
+  .grp summary:hover { background:#1b3049; }
+  .badge { color:#fff; border-radius:10px; min-width:22px; text-align:center; font-size:11px; padding:2px 6px; font-weight:600; background:#d93a32; }
+  .pc { font-weight:700; letter-spacing:.3px; }
+  .street { color:#9fb2c9; font-size:11px; flex:1; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .grp[open] summary { background:#1b3049; }
+  .addrlist { padding:6px 8px 8px 26px; font-size:12px; color:#c3d1e2; max-height:45vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .addrlist div { padding:1.5px 0; }
+  .tag { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.4px; padding:1px 5px; border-radius:4px; margin-right:6px; vertical-align:1px; background:#d93a32; color:#fff; }
+  .approx { color:#e8b93c; font-size:11px; }
+  #listbtn { display:none; position:fixed; top:12px; left:12px; z-index:1002; background:#0f1c2e; color:#fff; border:none; border-radius:8px; padding:12px 16px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.45); }
+  .legend { background:#fff; padding:8px 12px; border-radius:8px; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,.4); line-height:1.8; }
+  .legend .sw { display:inline-block; width:14px; height:11px; margin-right:6px; vertical-align:-1px; border-radius:2px; }
+  .sw.red { background:#d93a32; }
+  .sw.yellow { background:#e8b93c; }
+  .bombmark { background:#fff; border:2px solid #222; width:54px; height:54px; display:flex; align-items:center; justify-content:center; transform:rotate(45deg); box-shadow:0 1px 4px rgba(0,0,0,.5); }
+  .bombmark span { transform:rotate(-45deg); font-weight:800; font-size:11px; letter-spacing:.5px; }
+  .leaflet-popup-content { max-height:50vh; overflow-y:auto; font-size:12px; }
+  .leaflet-popup-content h4 { margin:0 0 6px; }
+  .leaflet-popup-content ul { margin:0; padding-left:16px; max-height:32vh; overflow-y:auto; }
+  .noresult { padding:14px; font-size:12px; color:#8fa3bd; text-align:center; }
+
+  @media (max-width: 820px) {
+    #wrap { display:block; }
+    #map { height:100vh; width:100vw; }
+    #sidebar { position:fixed; top:0; left:0; height:100%; width:min(94vw,420px); transform:translateX(-105%); transition:transform .22s ease; box-shadow:2px 0 14px rgba(0,0,0,.45); }
+    #sidebar.open { transform:translateX(0); }
+    #closebtn { display:block; }
+    #listbtn { display:flex; align-items:center; gap:8px; }
+    #search { font-size:16px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="sidebar">
+    <div id="sidehead">
+      <button id="closebtn" aria-label="Close list">&times;</button>
+      <div>
+        <h1>Falmouth UXB &mdash; Cordon &amp; Evac Area</h1>
+        <div class="sub" id="subtitle">Loading&hellip;</div>
+      </div>
+    </div>
+    <div id="status"></div>
+    <input id="search" type="text" placeholder="Search your address, street or postcode..." disabled>
+    <div id="list"></div>
+  </div>
+  <div id="map"></div>
+  <button id="listbtn">&#9776; Addresses</button>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script>
+const PC_CACHE = {"TR11 3HG":{"lat":50.152258,"lng":-5.066647},"TR11 3HH":{"lat":50.152756,"lng":-5.066203},"TR11 3HL":{"lat":50.151616,"lng":-5.066116},"TR11 3HN":{"lat":50.151461,"lng":-5.067884},"TR11 3HP":{"lat":50.14912,"lng":-5.06492},"TR11 3HQ":{"lat":50.15294,"lng":-5.066397},"TR11 3HR":{"lat":50.149847,"lng":-5.066325},"TR11 3HS":{"lat":50.149259,"lng":-5.066441},"TR11 3HT":{"lat":50.150982,"lng":-5.066621},"TR11 3HU":{"lat":50.151819,"lng":-5.066269},"TR11 3HX":{"lat":50.152638,"lng":-5.067246},"TR11 3JB":{"lat":50.152766,"lng":-5.066512},"TR11 3JF":{"lat":50.152506,"lng":-5.066131},"TR11 3JG":{"lat":50.152367,"lng":-5.066276},"TR11 3JH":{"lat":50.152082,"lng":-5.065852},"TR11 3JJ":{"lat":50.151336,"lng":-5.066504},"TR11 3JL":{"lat":50.150566,"lng":-5.065321},"TR11 3JN":{"lat":50.151158,"lng":-5.066073},"TR11 3JP":{"lat":50.150257,"lng":-5.064783},"TR11 3JQ":{"lat":50.152343,"lng":-5.065841},"TR11 3JT":{"lat":50.152187,"lng":-5.065257},"TR11 3JW":{"lat":50.150122,"lng":-5.06546},"TR11 3JX":{"lat":50.150758,"lng":-5.065221},"TR11 3LD":{"lat":50.149895,"lng":-5.064158},"TR11 3LG":{"lat":50.152003,"lng":-5.065063},"TR11 3LH":{"lat":50.152084,"lng":-5.065418},"TR11 3QY":{"lat":50.1515,"lng":-5.061642},"TR11 3XA":{"lat":50.151568,"lng":-5.063145},"TR11 3XG":{"lat":50.149987,"lng":-5.061042},"TR11 3XH":{"lat":50.149905,"lng":-5.060364},"TR11 3XJ":{"lat":50.150201,"lng":-5.060089},"TR11 3XL":{"lat":50.150124,"lng":-5.060588},"TR11 3XP":{"lat":50.151014,"lng":-5.062325},"TR11 3XQ":{"lat":50.149987,"lng":-5.06002},"TR11 3XT":{"lat":50.150647,"lng":-5.060216},"TR11 3XU":{"lat":50.15043,"lng":-5.060944},"TR11 3XX":{"lat":50.150789,"lng":-5.059623},"TR11 3XY":{"lat":50.150937,"lng":-5.059464},"TR11 3XZ":{"lat":50.151087,"lng":-5.059572},"TR11 3YA":{"lat":50.150319,"lng":-5.061399},"TR11 3YB":{"lat":50.150766,"lng":-5.06217},"TR11 3YE":{"lat":50.150999,"lng":-5.061204},"TR11 3YL":{"lat":50.151505,"lng":-5.060103},"TR11 4AL":{"lat":50.150933,"lng":-5.064392},"TR11 4AN":{"lat":50.147089,"lng":-5.06346},"TR11 4AP":{"lat":50.147015,"lng":-5.060824},"TR11 4AR":{"lat":50.147603,"lng":-5.063423},"TR11 4AS":{"lat":50.148445,"lng":-5.059445},"TR11 4AT":{"lat":50.151645,"lng":-5.065362},"TR11 4AU":{"lat":50.150982,"lng":-5.064549},"TR11 4AW":{"lat":50.146768,"lng":-5.061648},"TR11 4AX":{"lat":50.148776,"lng":-5.060194},"TR11 4AY":{"lat":50.149417,"lng":-5.063525},"TR11 4AZ":{"lat":50.147681,"lng":-5.064898},"TR11 4BA":{"lat":50.149026,"lng":-5.063024},"TR11 4BB":{"lat":50.148828,"lng":-5.062662},"TR11 4BD":{"lat":50.148732,"lng":-5.063257},"TR11 4BE":{"lat":50.14845,"lng":-5.062343},"TR11 4BG":{"lat":50.147142,"lng":-5.062148},"TR11 4BH":{"lat":50.147762,"lng":-5.061138},"TR11 4BJ":{"lat":50.1472,"lng":-5.061984},"TR11 4BL":{"lat":50.14919,"lng":-5.059871},"TR11 4BN":{"lat":50.150403,"lng":-5.058226},"TR11 4BP":{"lat":50.149238,"lng":-5.061106},"TR11 4BQ":{"lat":50.147851,"lng":-5.061507},"TR11 4BS":{"lat":50.149484,"lng":-5.06269},"TR11 4BU":{"lat":50.146652,"lng":-5.061949},"TR11 4BW":{"lat":50.150266,"lng":-5.057965},"TR11 4BX":{"lat":50.149697,"lng":-5.059385},"TR11 4BY":{"lat":50.147224,"lng":-5.060403},"TR11 4DL":{"lat":50.146606,"lng":-5.06539},"TR11 4DS":{"lat":50.147951,"lng":-5.067617},"TR11 4DX":{"lat":50.148041,"lng":-5.061141},"TR11 4DZ":{"lat":50.148146,"lng":-5.061918},"TR11 4ET":{"lat":50.151498,"lng":-5.065114},"TR11 4FB":{"lat":50.150926,"lng":-5.055081},"TR11 4FD":{"lat":50.151033,"lng":-5.054794},"TR11 4FF":{"lat":50.149062,"lng":-5.053115},"TR11 4FJ":{"lat":50.150398,"lng":-5.059416},"TR11 4FR":{"lat":50.148136,"lng":-5.058544},"TR11 4FX":{"lat":50.148806,"lng":-5.05601},"TR11 4GA":{"lat":50.149878,"lng":-5.058319},"TR11 4GB":{"lat":50.149823,"lng":-5.058707},"TR11 4GE":{"lat":50.150337,"lng":-5.05629},"TR11 4GJ":{"lat":50.149125,"lng":-5.058565},"TR11 4LP":{"lat":50.147421,"lng":-5.047788},"TR11 4LR":{"lat":50.149369,"lng":-5.055136},"TR11 4LS":{"lat":50.149578,"lng":-5.054015},"TR11 4LT":{"lat":50.149913,"lng":-5.055997},"TR11 4LX":{"lat":50.147806,"lng":-5.05911},"TR11 4LY":{"lat":50.146509,"lng":-5.062261},"TR11 4NE":{"lat":50.149447,"lng":-5.055589},"TR11 4NF":{"lat":50.149017,"lng":-5.054148},"TR11 4NG":{"lat":50.149845,"lng":-5.048642},"TR11 4NH":{"lat":50.148667,"lng":-5.057877},"TR11 4NJ":{"lat":50.151295,"lng":-5.051325},"TR11 4NN":{"lat":50.149697,"lng":-5.059049},"TR11 4NP":{"lat":50.146209,"lng":-5.063754},"TR11 4NQ":{"lat":50.149023,"lng":-5.04502},"TR11 4NR":{"lat":50.151497,"lng":-5.056644},"TR11 4NT":{"lat":50.145974,"lng":-5.064481},"TR11 4NX":{"lat":50.147494,"lng":-5.060042},"TR11 4NZ":{"lat":50.148921,"lng":-5.05676},"TR11 4PE":{"lat":50.14909,"lng":-5.052388},"TR11 4RG":{"lat":50.150072,"lng":-5.068033},"TR11 4WZ":{"lat":50.145214,"lng":-5.045142},"TR11 4EW":{"lat":50.147089,"lng":-5.06346,"approx":true},"TR11 4BT":{"lat":50.147681,"lng":-5.064898,"approx":true}};
+const APPROX = new Set(["TR11 4BT", "TR11 4EW"]);
+
+// ---- CONFIG -------------------------------------------------------------
+// Approximate bomb location (the "BOMB" pin on the reference map - Falmouth Docks).
+const BOMB = [50.1527, -5.0493];
+const CORDON_RADIUS = 755;   // metres - the safety cordon
+const EVAC_BUFFER = 150;     // metres - shading drawn around the affected addresses
+// -------------------------------------------------------------------------
+
+const map = L.map('map').setView(BOMB, 14);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 18,
+  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics'
+}).addTo(map);
+
+L.control.scale().addTo(map);
+const legend = L.control({ position: 'bottomleft' });
+legend.onAdd = function () {
+  const d = L.DomUtil.create('div', 'legend');
+  d.innerHTML = '<span class="sw red"></span>Evac area (affected addresses)<br><span class="sw yellow"></span>' + CORDON_RADIUS + 'm cordon';
+  return d;
+};
+legend.addTo(map);
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+const listEl = document.getElementById('list');
+const searchEl = document.getElementById('search');
+const statusEl = document.getElementById('status');
+const subEl = document.getElementById('subtitle');
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg || '';
+  statusEl.className = isErr ? 'err' : '';
+}
+
+function parseRecords(text) {
+  const re = /(TR\d\d\s\d[A-Z]{2})\s+(.+?)\s+\1(?=\s*TR\d\d\s\d[A-Z]{2}\s|\s*$)/gs;
+  const records = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    let matched = false;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(line))) {
+      matched = true;
+      records.push({ postcode: m[1], address: m[2].replace(/\s+/g, ' ').trim() });
+    }
+    if (!matched) {
+      const fm = /^(TR\d\d\s\d[A-Z]{2})\s+(.*)$/.exec(line);
+      if (fm) {
+        let addr = fm[2].trim();
+        const pc = fm[1];
+        if (addr.toUpperCase().endsWith(pc)) addr = addr.slice(0, addr.length - pc.length).trim();
+        records.push({ postcode: pc, address: addr });
+      }
+    }
+  }
+  return records;
+}
+
+function makePinIcon(fill, stroke) {
+  return L.icon({
+    iconUrl: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30'>" +
+      "<path d='M11 0C4.9 0 0 4.9 0 11c0 7.7 11 19 11 19s11-11.3 11-19C22 4.9 17.1 0 11 0z' fill='" + fill + "' stroke='" + stroke + "' stroke-width='1.5'/>" +
+      "<circle cx='11' cy='11' r='4.5' fill='#fff'/></svg>"),
+    iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -26]
+  });
+}
+const RED_PIN = makePinIcon('#d93a32', '#8f1a14');
+
+let allMarkers = [];
+let entries = [];
+
+const evacAreaLayer = L.layerGroup();
+const cordonLayer = L.layerGroup();
+const pinLayer = L.layerGroup();
+
+async function main() {
+  let text;
+  try {
+    const res = await fetch('addresses.txt', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    text = await res.text();
+  } catch (e) {
+    setStatus('Could not load addresses.txt - make sure it is in the same folder as this page.', true);
+    subEl.textContent = 'Address data unavailable';
+    return;
+  }
+
+  setStatus('Parsing addresses&hellip;');
+  const records = parseRecords(text);
+  if (!records.length) { setStatus('No addresses found in addresses.txt.', true); return; }
+
+  const groups = {};
+  for (const r of records) (groups[r.postcode] ||= []).push(r.address);
+
+  const coords = Object.assign({}, PC_CACHE);
+  const missing = Object.keys(groups).filter(p => !coords[p]);
+  const failed = [];
+  if (missing.length) {
+    setStatus('Geocoding ' + missing.length + ' new postcode' + (missing.length > 1 ? 's' : '') + ' (postcodes.io)...');
+    for (const pc of missing) {
+      try {
+        const r = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(pc));
+        const d = await r.json();
+        if (d.status === 200 && d.result) coords[pc] = { lat: d.result.latitude, lng: d.result.longitude };
+        else failed.push(pc);
+      } catch (e) { failed.push(pc); }
+    }
+  }
+
+  entries = [];
+  for (const pc of Object.keys(groups).sort()) {
+    const c = coords[pc];
+    if (!c) continue;
+    entries.push({ pc, addresses: groups[pc], count: groups[pc].length, lat: c.lat, lng: c.lng, approx: APPROX.has(pc) });
+  }
+
+  // ---- evac area (shaded region covering the affected addresses) ----
+  try {
+    const mp = turf.multiPoint(entries.map(e => [e.lng, e.lat]));
+    const buffered = turf.buffer(mp, EVAC_BUFFER, { units: 'meters' });
+    L.geoJSON(buffered, { style: { color: '#d93a32', weight: 2, fillColor: '#d93a32', fillOpacity: 0.18 } }).addTo(evacAreaLayer);
+  } catch (e) {
+    setStatus('Could not build evac area shape (offline?) - showing addresses only.', true);
+  }
+
+  // ---- cordon circle + bomb marker ----
+  L.circle(BOMB, { radius: CORDON_RADIUS, color: '#e0a800', weight: 2, fillColor: '#e8b93c', fillOpacity: 0.14, interactive: true })
+    .bindTooltip(CORDON_RADIUS + 'm cordon').addTo(cordonLayer);
+  const bombIcon = L.divIcon({ className: '', html: '<div class="bombmark"><span>BOMB</span></div>', iconSize: [54, 54], iconAnchor: [27, 27] });
+  L.marker(BOMB, { icon: bombIcon }).bindPopup('<b>Approx. bomb location</b><br>Falmouth Docks').addTo(cordonLayer);
+
+  // ---- red pins for every affected address ----
+  entries.forEach(m => {
+    m.addresses.forEach(a => {
+      const mk = L.marker([m.lat, m.lng], { icon: RED_PIN });
+      mk.bindPopup('<b>' + esc(a) + '</b><br><span style="color:#666">' + m.pc + '</span><br><b style="color:#d93a32">EVAC AREA</b>' + (m.approx ? ' <span style="color:#b8860b">(approx.)</span>' : ''));
+      mk._entry = m;
+      allMarkers.push(mk);
+      mk.addTo(pinLayer);
+    });
+  });
+
+  evacAreaLayer.addTo(map);
+  cordonLayer.addTo(map);
+  pinLayer.addTo(map);
+
+  L.control.layers({}, {
+    'Evac area (red)': evacAreaLayer,
+    ['Cordon ' + CORDON_RADIUS + 'm (yellow)']: cordonLayer,
+    'Affected addresses (pins)': pinLayer
+  }, { collapsed: false, position: 'topright' }).addTo(map);
+
+  // fit to cordon + addresses
+  let bounds = L.latLng(BOMB).toBounds(CORDON_RADIUS * 2);
+  if (entries.length) bounds.extend(L.latLngBounds(entries.map(e => [e.lat, e.lng])));
+  map.fitBounds(bounds, { padding: [30, 30] });
+
+  subEl.textContent = records.length + ' affected addresses across ' + entries.length +
+    ' postcodes &middot; ' + CORDON_RADIUS + 'm cordon centred on approx. Falmouth Docks' +
+    (failed.length ? ' &middot; ' + failed.length + ' postcodes not mapped' : '');
+  if (failed.length) setStatus('Could not geocode: ' + failed.join(', '));
+  else setStatus('');
+
+  buildSidebar('');
+  searchEl.disabled = false;
+}
+
+function buildSidebar(filter) {
+  filter = (filter || '').toLowerCase().trim();
+  listEl.innerHTML = '';
+  const h = document.createElement('div');
+  h.className = 'section';
+  h.textContent = 'Affected addresses (evac area)';
+  listEl.appendChild(h);
+  let shown = 0;
+  entries.forEach(m => {
+    const street = (m.addresses[0] || '').replace(/^[^,]*,\s*/, '').split(',')[0].trim();
+    const hay = (m.pc + ' ' + m.addresses.join(' ')).toLowerCase();
+    if (filter && !hay.includes(filter)) return;
+    shown++;
+    const d = document.createElement('details');
+    d.className = 'grp';
+    if (!filter) d.open = false;
+    const sum = document.createElement('summary');
+    sum.innerHTML = '<span class="badge">' + m.count + '</span><span class="pc">' + m.pc + '</span><span class="street">' + esc(street) + '</span>';
+    const list = document.createElement('div');
+    list.className = 'addrlist';
+    list.innerHTML = m.addresses.map(a => '<div><span class="tag">EVAC</span>' + esc(a) + (m.approx ? ' <span class="approx">(approx.)</span>' : '') + '</div>').join('');
+    d.appendChild(sum);
+    d.appendChild(list);
+    listEl.appendChild(d);
+  });
+  if (!shown) listEl.innerHTML = '<div class="noresult">No affected addresses match your search.</div>';
+}
+
+searchEl.addEventListener('input', e => {
+  const q = e.target.value;
+  buildSidebar(q);
+  const ql = q.trim().toLowerCase();
+  allMarkers.forEach(mk => {
+    const m = mk._entry;
+    const hay = (m.pc + ' ' + m.addresses.join(' ')).toLowerCase();
+    const match = !ql || hay.includes(ql);
+    if (match) { if (!map.hasLayer(mk)) mk.addTo(map); }
+    else map.removeLayer(mk);
+  });
+});
+
+const listBtn = document.getElementById('listbtn');
+const closeBtn = document.getElementById('closebtn');
+listBtn.addEventListener('click', () => document.getElementById('sidebar').classList.add('open'));
+closeBtn.addEventListener('click', () => document.getElementById('sidebar').classList.remove('open'));
+
+main();
+</script>
+</body>
+</html>
